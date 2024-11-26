@@ -110,14 +110,14 @@ impl Drop for AnonymousMmap {
 /// A wrapper for buffer ring. The entries are allocated with `mmap`.
 ///
 /// This struct doesn't own the buffer.
-pub struct BufRing<'a> {
+pub struct BufRing {
     fd: RawFd,
     entries: mem::ManuallyDrop<AnonymousMmap>,
     len: u16,
     bgid: u16,
 }
 
-impl<'a> BufRing<'a> {
+impl BufRing {
     pub(crate) fn new(fd: RawFd, len: u16, bgid: u16) -> io::Result<Self> {
         let entries = AnonymousMmap::new((len as usize) * mem::size_of::<BufRingEntry>())?;
         entries.dontfork()?;
@@ -223,7 +223,7 @@ impl<'a> BufRing<'a> {
     }
 }
 
-impl Drop for BufRing<'_> {
+impl Drop for BufRing {
     fn drop(&mut self) {
         // SAFETY: ManuallyDrop
         unsafe {
