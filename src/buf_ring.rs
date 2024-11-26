@@ -111,17 +111,17 @@ impl Drop for AnonymousMmap {
 ///
 /// This struct doesn't own the buffer.
 pub struct BufRing<'a> {
-    fd: &'a OwnedFd,
+    fd: RawFd,
     entries: mem::ManuallyDrop<AnonymousMmap>,
     len: u16,
     bgid: u16,
 }
 
 impl<'a> BufRing<'a> {
-    pub(crate) fn new(fd: &'a OwnedFd, len: u16, bgid: u16) -> io::Result<Self> {
+    pub(crate) fn new(fd: RawFd, len: u16, bgid: u16) -> io::Result<Self> {
         let entries = AnonymousMmap::new((len as usize) * mem::size_of::<BufRingEntry>())?;
         entries.dontfork()?;
-        register(fd.as_raw_fd(), entries.as_ptr() as _, len, bgid)?;
+        register(fd, entries.as_ptr() as _, len, bgid)?;
         // SAFETY: no one use the tail at this moment
         unsafe {
             *BufRingEntry::tail(entries.as_ptr().cast()).cast_mut() = 0;
@@ -139,7 +139,7 @@ impl<'a> BufRing<'a> {
     ///
     /// If it fails to unregister, the inner memory will be leaked.
     pub fn unregister(mut self) -> io::Result<()> {
-        unregister(self.fd.as_raw_fd(), self.bgid)?;
+        unregister(self.fd, self.bgid)?;
         // SAFETY: unregister successfully
         unsafe {
             mem::ManuallyDrop::drop(&mut self.entries);
@@ -189,6 +189,7 @@ impl<'a> BufRing<'a> {
         buf_ring_entry.set_bid(bid);
     }
 
+    #[inline]
     unsafe fn advance(&self, count: u16) {
         self.atomic_tail().fetch_add(count, Ordering::Release);
     }
@@ -198,6 +199,7 @@ impl<'a> BufRing<'a> {
     /// # Safety
     ///
     /// Developers must ensure that the buffer is valid before the ring is unregistered.
+    #[inline]
     pub unsafe fn push(&mut self, bid: u16, buf: &mut [MaybeUninit<u8>]) {
         self.push_inner(bid, buf, 0);
         self.advance(1);

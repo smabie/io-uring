@@ -480,8 +480,8 @@ impl<'a> Submitter<'a> {
         &self,
         ring_entries: u16,
         bgid: u16,
-    ) -> io::Result<buf_ring::BufRing<'a>> {
-        buf_ring::BufRing::new(self.fd, ring_entries, bgid)
+    ) -> io::Result<buf_ring::BufRing> {
+        buf_ring::BufRing::new(self.fd.as_raw_fd(), ring_entries, bgid)
     }
 
     /// Performs a synchronous cancellation request, similar to [AsyncCancel](crate::opcode::AsyncCancel),
